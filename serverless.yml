@@ -9,6 +9,7 @@ provider:
   region: us-east-1
   
   environment:
+    TABLE_LOCALES: ${env:TABLE_LOCALES, 'ChinaWok-Locales'}
     TABLE_COMBOS: ${env:TABLE_COMBOS, 'ChinaWok-Combos'}
     TABLE_OFERTAS: ${env:TABLE_OFERTAS, 'ChinaWok-Ofertas'}
     TABLE_PEDIDOS: ${env:TABLE_PEDIDOS, 'ChinaWok-Pedidos'}
