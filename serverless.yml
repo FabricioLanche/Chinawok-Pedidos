@@ -1,0 +1,72 @@
+org: flanche
+service: chinawok-analitica
+
+provider:
+  name: aws
+  runtime: python3.12
+  memorySize: 512
+  timeout: 300
+  region: us-east-1
+  
+  environment:
+    ATHENA_DATABASE: ${env:ATHENA_DATABASE, 'chinawok_analytics'}
+    ATHENA_OUTPUT_LOCATION: ${env:ATHENA_OUTPUT_LOCATION}
+    ATHENA_WORKGROUP: ${env:ATHENA_WORKGROUP, 'primary'}
+  
+  iam:
+    role: arn:aws:iam::${env:AWS_ACCOUNT_ID}:role/LabRole
+
+functions:
+  productosVendidos:
+    handler: analitica/productos_vendidos.handler
+    name: ${self:service}-productos-vendidos
+    description: Consulta los productos más vendidos por local
+    events:
+      - http:
+          path: analitica/productos-vendidos
+          method: post
+          cors: true
+  
+  mejorPersonal:
+    handler: analitica/mejor_personal.handler
+    name: ${self:service}-mejor-personal
+    description: Ranking del mejor personal por local
+    events:
+      - http:
+          path: analitica/mejor-personal
+          method: post
+          cors: true
+  
+  recordDiario:
+    handler: analitica/record_diario.handler
+    name: ${self:service}-record-diario
+    description: Récord diario de pedidos y revenue por mes
+    events:
+      - http:
+          path: analitica/record-diario
+          method: post
+          cors: true
+  
+  estadisticasGenerales:
+    handler: analitica/estadisticas_generales.handler
+    name: ${self:service}-estadisticas-generales
+    description: Dashboard con estadísticas generales del local
+    events:
+      - http:
+          path: analitica/estadisticas-generales
+          method: post
+          cors: true
+
+custom:
+  pythonRequirements:
+    dockerizePip: true  # Cambiar a true
+    slim: true
+
+package:
+  individually: false
+  exclude:
+    - node_modules/**
+    - .git/**
+    - .env
+    - __pycache__/**
+    - "*.pyc"
