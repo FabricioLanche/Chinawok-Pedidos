@@ -1,5 +1,5 @@
 org: flanche
-service: chinawok-analitica
+service: chinawok-pedidos
 
 provider:
   name: aws
@@ -9,52 +9,177 @@ provider:
   region: us-east-1
   
   environment:
-    ATHENA_DATABASE: ${env:ATHENA_DATABASE, 'chinawok_analytics'}
-    ATHENA_OUTPUT_LOCATION: ${env:ATHENA_OUTPUT_LOCATION}
-    ATHENA_WORKGROUP: ${env:ATHENA_WORKGROUP, 'primary'}
+    TABLE_COMBOS: ${env:TABLE_COMBOS, 'ChinaWok-Combos'}
+    TABLE_OFERTAS: ${env:TABLE_OFERTAS, 'ChinaWok-Ofertas'}
+    TABLE_PEDIDOS: ${env:TABLE_PEDIDOS, 'ChinaWok-Pedidos'}
+    TABLE_PRODUCTOS: ${env:TABLE_PRODUCTOS, 'ChinaWok-Productos'}
   
   iam:
     role: arn:aws:iam::${env:AWS_ACCOUNT_ID}:role/LabRole
 
 functions:
-  productosVendidos:
-    handler: analitica/productos_vendidos.handler
-    name: ${self:service}-productos-vendidos
-    description: Consulta los productos más vendidos por local
+  # ==================== COMBOS ====================
+  combosCreate:
+    handler: Combos/create.handler
+    name: ${self:service}-combos-create
+    description: Crear un combo
     events:
       - http:
-          path: analitica/productos-vendidos
+          path: combos
           method: post
           cors: true
   
-  mejorPersonal:
-    handler: analitica/mejor_personal.handler
-    name: ${self:service}-mejor-personal
-    description: Ranking del mejor personal por local
+  combosRead:
+    handler: Combos/read.handler
+    name: ${self:service}-combos-read
+    description: Leer combos por local
     events:
       - http:
-          path: analitica/mejor-personal
+          path: combos
+          method: get
+          cors: true
+  
+  combosUpdate:
+    handler: Combos/update.handler
+    name: ${self:service}-combos-update
+    description: Actualizar un combo
+    events:
+      - http:
+          path: combos
+          method: put
+          cors: true
+  
+  combosDelete:
+    handler: Combos/delete.handler
+    name: ${self:service}-combos-delete
+    description: Eliminar un combo
+    events:
+      - http:
+          path: combos
+          method: delete
+          cors: true
+  
+  # ==================== OFERTAS ====================
+  ofertasCreate:
+    handler: Ofertas/create.handler
+    name: ${self:service}-ofertas-create
+    description: Crear una oferta
+    events:
+      - http:
+          path: ofertas
           method: post
           cors: true
   
-  recordDiario:
-    handler: analitica/record_diario.handler
-    name: ${self:service}-record-diario
-    description: Récord diario de pedidos y revenue por mes
+  ofertasRead:
+    handler: Ofertas/read.handler
+    name: ${self:service}-ofertas-read
+    description: Leer ofertas por local
     events:
       - http:
-          path: analitica/record-diario
+          path: ofertas
+          method: get
+          cors: true
+  
+  ofertasUpdate:
+    handler: Ofertas/update.handler
+    name: ${self:service}-ofertas-update
+    description: Actualizar una oferta
+    events:
+      - http:
+          path: ofertas
+          method: put
+          cors: true
+  
+  ofertasDelete:
+    handler: Ofertas/delete.handler
+    name: ${self:service}-ofertas-delete
+    description: Eliminar una oferta
+    events:
+      - http:
+          path: ofertas
+          method: delete
+          cors: true
+  
+  # ==================== PEDIDOS ====================
+  pedidosCreate:
+    handler: Pedido/create.handler
+    name: ${self:service}-pedidos-create
+    description: Crear un pedido
+    events:
+      - http:
+          path: pedidos
           method: post
           cors: true
   
-  estadisticasGenerales:
-    handler: analitica/estadisticas_generales.handler
-    name: ${self:service}-estadisticas-generales
-    description: Dashboard con estadísticas generales del local
+  pedidosRead:
+    handler: Pedido/read.handler
+    name: ${self:service}-pedidos-read
+    description: Leer pedidos por local
     events:
       - http:
-          path: analitica/estadisticas-generales
+          path: pedidos
+          method: get
+          cors: true
+  
+  pedidosUpdate:
+    handler: Pedido/update.handler
+    name: ${self:service}-pedidos-update
+    description: Actualizar un pedido
+    events:
+      - http:
+          path: pedidos
+          method: put
+          cors: true
+  
+  pedidosDelete:
+    handler: Pedido/delete.handler
+    name: ${self:service}-pedidos-delete
+    description: Eliminar un pedido
+    events:
+      - http:
+          path: pedidos
+          method: delete
+          cors: true
+  
+  # ==================== PRODUCTOS ====================
+  productosCreate:
+    handler: Producto/create.handler
+    name: ${self:service}-productos-create
+    description: Crear un producto
+    events:
+      - http:
+          path: productos
           method: post
+          cors: true
+  
+  productosRead:
+    handler: Producto/read.handler
+    name: ${self:service}-productos-read
+    description: Leer productos por local
+    events:
+      - http:
+          path: productos
+          method: get
+          cors: true
+  
+  productosUpdate:
+    handler: Producto/update.handler
+    name: ${self:service}-productos-update
+    description: Actualizar un producto
+    events:
+      - http:
+          path: productos
+          method: put
+          cors: true
+  
+  productosDelete:
+    handler: Producto/delete.handler
+    name: ${self:service}-productos-delete
+    description: Eliminar un producto
+    events:
+      - http:
+          path: productos
+          method: delete
           cors: true
 
 custom:

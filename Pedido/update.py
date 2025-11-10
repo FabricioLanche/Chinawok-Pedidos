@@ -14,9 +14,30 @@ PEDIDO_UPDATE_SCHEMA = {
     "title": "PedidosUpdate",
     "type": "object",
     "properties": {
-        "productos_nombres": {
+        "productos": {
             "type": "array",
-            "items": {"type": "string"},
+            "items": {
+                "type": "object",
+                "properties": {
+                    "nombre": {"type": "string"},
+                    "cantidad": {"type": "integer", "minimum": 1}
+                },
+                "required": ["nombre", "cantidad"],
+                "additionalProperties": False
+            },
+            "minItems": 1
+        },
+        "combos": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "combo_id": {"type": "string"},
+                    "cantidad": {"type": "integer", "minimum": 1}
+                },
+                "required": ["combo_id", "cantidad"],
+                "additionalProperties": False
+            },
             "minItems": 1
         },
         "costo": {"type": "number", "minimum": 0},

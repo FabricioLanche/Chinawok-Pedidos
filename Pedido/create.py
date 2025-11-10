@@ -17,9 +17,30 @@ PEDIDO_SCHEMA = {
         "local_id": {"type": "string"},
         "pedido_id": {"type": "string"},
         "usuario_correo": {"type": "string", "format": "email"},
-        "productos_nombres": {
+        "productos": {
             "type": "array",
-            "items": {"type": "string"},
+            "items": {
+                "type": "object",
+                "properties": {
+                    "nombre": {"type": "string"},
+                    "cantidad": {"type": "integer", "minimum": 1}
+                },
+                "required": ["nombre", "cantidad"],
+                "additionalProperties": False
+            },
+            "minItems": 1
+        },
+        "combos": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "combo_id": {"type": "string"},
+                    "cantidad": {"type": "integer", "minimum": 1}
+                },
+                "required": ["combo_id", "cantidad"],
+                "additionalProperties": False
+            },
             "minItems": 1
         },
         "costo": {"type": "number", "minimum": 0},
@@ -68,10 +89,13 @@ PEDIDO_SCHEMA = {
         "pedido_id",
         "usuario_correo",
         "direccion",
-        "productos_nombres",
         "costo",
         "estado",
         "historial_estados"
+    ],
+    "anyOf": [
+        {"required": ["productos"]},
+        {"required": ["combos"]}
     ],
     "additionalProperties": False
 }
@@ -90,6 +114,19 @@ def handler(event, context):
         
         # Validar schema
         validate(instance=body, schema=PEDIDO_SCHEMA)
+        
+        # Validar que tenga productos o combos
+        if 'productos' not in body and 'combos' not in body:
+            return {
+                'statusCode': 400,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'body': json.dumps({
+                    'error': 'Debe especificar al menos productos o combos'
+                })
+            }
         
         # Insertar en DynamoDB
         table.put_item(Item=body)

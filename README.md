@@ -168,8 +168,23 @@ Body: {
   "local_id": "LOCAL001",
   "pedido_id": "PEDIDO001",
   "usuario_correo": "cliente@example.com",
-  "productos_nombres": ["Arroz Chaufa", "Wantán Frito"],
-  "costo": 35.50,
+  "productos": [
+    {
+      "nombre": "Arroz Chaufa",
+      "cantidad": 2
+    },
+    {
+      "nombre": "Wantán Frito",
+      "cantidad": 1
+    }
+  ],
+  "combos": [
+    {
+      "combo_id": "COMBO001",
+      "cantidad": 1
+    }
+  ],
+  "costo": 85.50,
   "direccion": "Av. Principal 123",
   "estado": "procesando",
   "historial_estados": [
@@ -181,6 +196,24 @@ Body: {
       "empleado": null
     }
   ]
+}
+
+# Nota: Puede incluir solo productos, solo combos, o ambos
+# Ejemplo con solo productos:
+{
+  "local_id": "LOCAL001",
+  "pedido_id": "PEDIDO002",
+  "usuario_correo": "cliente@example.com",
+  "productos": [
+    {
+      "nombre": "Tallarín Saltado",
+      "cantidad": 3
+    }
+  ],
+  "costo": 45.00,
+  "direccion": "Jr. Los Olivos 456",
+  "estado": "procesando",
+  "historial_estados": [...]
 }
 ```
 
@@ -200,7 +233,33 @@ Body: {
   "local_id": "LOCAL001",
   "pedido_id": "PEDIDO001",
   "estado": "cocinando",
-  "historial_estados": [...]
+  "productos": [
+    {
+      "nombre": "Arroz Chaufa",
+      "cantidad": 3
+    }
+  ],
+  "historial_estados": [
+    {
+      "estado": "procesando",
+      "hora_inicio": "2024-01-15T12:00:00Z",
+      "hora_fin": "2024-01-15T12:15:00Z",
+      "activo": false,
+      "empleado": null
+    },
+    {
+      "estado": "cocinando",
+      "hora_inicio": "2024-01-15T12:15:00Z",
+      "hora_fin": "2024-01-15T12:15:00Z",
+      "activo": true,
+      "empleado": {
+        "dni": "12345678",
+        "nombre_completo": "Juan Pérez",
+        "rol": "cocinero",
+        "calificacion_prom": 4.5
+      }
+    }
+  ]
 }
 ```
 
