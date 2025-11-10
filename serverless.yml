@@ -14,6 +14,7 @@ provider:
     TABLE_OFERTAS: ${env:TABLE_OFERTAS, 'ChinaWok-Ofertas'}
     TABLE_PEDIDOS: ${env:TABLE_PEDIDOS, 'ChinaWok-Pedidos'}
     TABLE_PRODUCTOS: ${env:TABLE_PRODUCTOS, 'ChinaWok-Productos'}
+    TABLE_USUARIOS: ${env:TABLE_USUARIOS, 'ChinaWok-Usuarios'}
     AWS_ACCOUNT_ID: ${env:AWS_ACCOUNT_ID}
     CHINAWOK_REGION: ${self:provider.region}
     STEP_FUNCTION_PEDIDOS_NAME: ${env:STEP_FUNCTION_PEDIDOS_NAME, 'ChinaWok-Pedidos-Processor'}
