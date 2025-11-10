@@ -2,11 +2,29 @@ import json
 import boto3
 import os
 from jsonschema import validate, ValidationError
+from botocore.exceptions import ClientError
+from decimal import Decimal
 
 # Cliente DynamoDB
 dynamodb = boto3.resource('dynamodb')
 table_name = os.environ.get('TABLE_PEDIDOS', 'ChinaWok-Pedidos')
 table = dynamodb.Table(table_name)
+
+# Tabla de productos
+productos_table_name = os.environ.get('TABLE_PRODUCTOS', 'ChinaWok-Productos')
+productos_table = dynamodb.Table(productos_table_name)
+
+# Tabla de combos
+combos_table_name = os.environ.get('TABLE_COMBOS', 'ChinaWok-Combos')
+combos_table = dynamodb.Table(combos_table_name)
+
+# Tabla de locales
+locales_table_name = os.environ.get('TABLE_LOCALES', 'ChinaWok-Locales')
+locales_table = dynamodb.Table(locales_table_name)
+
+# Tabla de usuarios
+usuarios_table_name = os.environ.get('TABLE_USUARIOS', 'ChinaWok-Usuarios')
+usuarios_table = dynamodb.Table(usuarios_table_name)
 
 # Schema de validación (sin requerir todas las propiedades para update parcial)
 PEDIDO_UPDATE_SCHEMA = {
@@ -86,6 +104,129 @@ PEDIDO_UPDATE_SCHEMA = {
 }
 
 
+def verificar_local_existe(local_id):
+    """
+    Verifica que el local exista
+    Returns: (bool, str) - (éxito, mensaje de error)
+    """
+    try:
+        response = locales_table.get_item(
+            Key={'local_id': local_id}
+        )
+        
+        if 'Item' not in response:
+            return False, f"El local '{local_id}' no existe"
+        
+        return True, None
+        
+    except ClientError as e:
+        return False, f"Error al verificar local: {str(e)}"
+
+
+def verificar_usuario_info_bancaria(usuario_correo):
+    """
+    Verifica que el usuario exista y tenga información bancaria completa
+    Returns: (bool, str) - (éxito, mensaje de error)
+    """
+    try:
+        response = usuarios_table.get_item(
+            Key={'correo': usuario_correo}
+        )
+        
+        if 'Item' not in response:
+            return False, f"El usuario '{usuario_correo}' no existe"
+        
+        usuario = response['Item']
+        info_bancaria = usuario.get('informacion_bancaria')
+        
+        if not info_bancaria:
+            return False, f"El usuario '{usuario_correo}' no tiene información bancaria registrada"
+        
+        # Verificar que todos los campos requeridos estén presentes y no sean None/vacíos
+        campos_requeridos = ['numero_tarjeta', 'cvv', 'fecha_vencimiento', 'direccion_delivery']
+        for campo in campos_requeridos:
+            if not info_bancaria.get(campo):
+                return False, f"El usuario '{usuario_correo}' tiene información bancaria incompleta (falta: {campo})"
+        
+        return True, None
+        
+    except ClientError as e:
+        return False, f"Error al verificar usuario: {str(e)}"
+
+
+def verificar_productos_stock(local_id, productos):
+    """
+    Verifica que los productos existan en el local y tengan stock suficiente
+    Returns: (bool, str) - (éxito, mensaje de error)
+    """
+    for producto in productos:
+        nombre = producto['nombre']
+        cantidad = producto['cantidad']
+        
+        try:
+            # Obtener producto de DynamoDB
+            response = productos_table.get_item(
+                Key={
+                    'local_id': local_id,
+                    'nombre': nombre
+                }
+            )
+            
+            if 'Item' not in response:
+                return False, f"El producto '{nombre}' no existe en el local {local_id}"
+            
+            producto_db = response['Item']
+            stock_disponible = producto_db.get('stock', 0)
+            
+            if stock_disponible < cantidad:
+                return False, f"Stock insuficiente para '{nombre}'. Disponible: {stock_disponible}, Solicitado: {cantidad}"
+                
+        except ClientError as e:
+            return False, f"Error al verificar producto '{nombre}': {str(e)}"
+    
+    return True, None
+
+
+def verificar_combos(local_id, combos):
+    """
+    Verifica que los combos existan
+    Returns: (bool, str) - (éxito, mensaje de error)
+    """
+    for combo in combos:
+        combo_id = combo['combo_id']
+        
+        try:
+            # Obtener combo de DynamoDB
+            response = combos_table.get_item(
+                Key={
+                    'local_id': local_id,
+                    'combo_id': combo_id
+                }
+            )
+            
+            if 'Item' not in response:
+                return False, f"El combo '{combo_id}' no existe en el local {local_id}"
+                
+        except ClientError as e:
+            return False, f"Error al verificar combo '{combo_id}': {str(e)}"
+    
+    return True, None
+
+
+def convertir_floats_a_decimal(obj):
+    """
+    Convierte recursivamente todos los floats a Decimal para DynamoDB
+    """
+    if isinstance(obj, list):
+        return [convertir_floats_a_decimal(item) for item in obj]
+    elif isinstance(obj, dict):
+        return {k: convertir_floats_a_decimal(v) for k, v in obj.items()}
+    elif isinstance(obj, float):
+        return Decimal(str(obj))
+    else:
+        return obj
+
+
 def handler(event, context):
     """
     Lambda handler para actualizar un pedido en DynamoDB
@@ -130,6 +271,108 @@ def handler(event, context):
         
         # Validar schema
         validate(instance=update_data, schema=PEDIDO_UPDATE_SCHEMA)
+        
+        # Obtener el pedido actual para verificaciones
+        try:
+            pedido_actual = table.get_item(
+                Key={
+                    'local_id': local_id,
+                    'pedido_id': pedido_id
+                }
+            )
+            
+            if 'Item' not in pedido_actual:
+                return {
+                    'statusCode': 404,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({
+                        'error': 'Pedido no encontrado'
+                    })
+                }
+            
+            pedido = pedido_actual['Item']
+            usuario_correo = pedido.get('usuario_correo')
+            
+        except ClientError as e:
+            return {
+                'statusCode': 500,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'body': json.dumps({
+                    'error': 'Error al obtener pedido',
+                    'message': str(e)
+                })
+            }
+        
+        # Verificar que el local existe
+        exito, error_msg = verificar_local_existe(local_id)
+        if not exito:
+            return {
+                'statusCode': 400,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'body': json.dumps({
+                    'error': 'Error de validación de local',
+                    'message': error_msg
+                })
+            }
+        
+        # Verificar que el usuario existe y tiene información bancaria
+        exito, error_msg = verificar_usuario_info_bancaria(usuario_correo)
+        if not exito:
+            return {
+                'statusCode': 400,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'body': json.dumps({
+                    'error': 'Error de validación de usuario',
+                    'message': error_msg
+                })
+            }
+        
+        # Verificar productos si se están actualizando
+        if 'productos' in update_data and update_data['productos']:
+            exito, error_msg = verificar_productos_stock(local_id, update_data['productos'])
+            if not exito:
+                return {
+                    'statusCode': 400,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({
+                        'error': 'Error de validación de productos',
+                        'message': error_msg
+                    })
+                }
+        
+        # Verificar combos si se están actualizando
+        if 'combos' in update_data and update_data['combos']:
+            exito, error_msg = verificar_combos(local_id, update_data['combos'])
+            if not exito:
+                return {
+                    'statusCode': 400,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({
+                        'error': 'Error de validación de combos',
+                        'message': error_msg
+                    })
+                }
+        
+        # Convertir floats a Decimal para DynamoDB
+        update_data = convertir_floats_a_decimal(update_data)
         
         # Construir expresión de actualización
         update_expression = "SET " + ", ".join([f"#{k} = :{k}" for k in update_data.keys()])
