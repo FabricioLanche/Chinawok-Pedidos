@@ -1,6 +1,7 @@
 import json
 import boto3
 import os
+import uuid
 from decimal import Decimal
 from jsonschema import validate, ValidationError
 
@@ -16,7 +17,6 @@ COMBO_SCHEMA = {
     "type": "object",
     "properties": {
         "local_id": {"type": "string"},
-        "combo_id": {"type": "string"},
         "nombre": {"type": "string"},
         "productos_nombres": {
             "type": "array",
@@ -25,7 +25,7 @@ COMBO_SCHEMA = {
         },
         "descripcion": {"type": "string"}
     },
-    "required": ["local_id", "combo_id", "nombre", "productos_nombres"],
+    "required": ["local_id", "nombre", "productos_nombres"],
     "additionalProperties": False
 }
 
@@ -43,6 +43,9 @@ def handler(event, context):
         
         # Validar schema
         validate(instance=body, schema=COMBO_SCHEMA)
+        
+        # Generar combo_id único usando UUID
+        body['combo_id'] = str(uuid.uuid4())
         
         # Insertar en DynamoDB
         table.put_item(Item=body)
