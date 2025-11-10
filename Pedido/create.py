@@ -1,6 +1,7 @@
 import json
 import boto3
 import os
+from datetime import datetime, timedelta
 from jsonschema import validate, ValidationError
 from botocore.exceptions import ClientError
 
@@ -16,6 +17,10 @@ productos_table = dynamodb.Table(productos_table_name)
 # Tabla de combos
 combos_table_name = os.environ.get('TABLE_COMBOS', 'ChinaWok-Combos')
 combos_table = dynamodb.Table(combos_table_name)
+
+# Agregar cliente de EventBridge
+eventbridge = boto3.client('events')
+EVENT_BUS_NAME = os.environ.get('EVENT_BUS_NAME', 'chinawok-pedidos-events')
 
 # Schema de validación
 PEDIDO_SCHEMA = {
@@ -180,6 +185,23 @@ def handler(event, context):
         else:
             body = event.get('body', event)
         
+        # Inicializar timestamps y estado si no vienen en el body
+        if 'estado' not in body or 'historial_estados' not in body:
+            hora_inicio = datetime.utcnow()
+            # Estimamos 2-3 segundos para procesamiento (validaciones + EventBridge)
+            hora_fin = hora_inicio + timedelta(seconds=2.5)
+            
+            body['estado'] = 'procesando'
+            body['historial_estados'] = [
+                {
+                    'estado': 'procesando',
+                    'hora_inicio': hora_inicio.isoformat() + 'Z',
+                    'hora_fin': hora_fin.isoformat() + 'Z',
+                    'activo': True,
+                    'empleado': None
+                }
+            ]
+        
         # Validar schema
         validate(instance=body, schema=PEDIDO_SCHEMA)
         
@@ -232,6 +254,24 @@ def handler(event, context):
         
         # Insertar en DynamoDB
         table.put_item(Item=body)
+        
+        # Después de crear exitosamente el pedido en DynamoDB
+        # Publicar evento a EventBridge
+        try:
+            event_response = eventbridge.put_events(
+                Entries=[
+                    {
+                        'Source': 'chinawok.pedidos',
+                        'DetailType': 'PedidoCreado',
+                        'Detail': json.dumps(body),  # Los datos del pedido creado
+                        'EventBusName': EVENT_BUS_NAME
+                    }
+                ]
+            )
+            print(f"Evento publicado a EventBridge: {event_response}")
+        except Exception as eb_error:
+            print(f"Error publicando evento a EventBridge: {str(eb_error)}")
+            # No fallar la creación del pedido si EventBridge falla
         
         return {
             'statusCode': 201,
