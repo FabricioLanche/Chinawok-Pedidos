@@ -16,7 +16,7 @@ def handler(event, context):
         
         # Construir el ARN del Step Function dinámicamente
         aws_account_id = os.environ.get('AWS_ACCOUNT_ID')
-        aws_region = os.environ.get('AWS_REGION', 'us-east-1')
+        aws_region = os.environ.get('CHINAWOK_REGION', 'us-east-1')
         step_function_name = os.environ.get('STEP_FUNCTION_PEDIDOS_NAME')
         
         if not aws_account_id or not step_function_name:
