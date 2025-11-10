@@ -187,23 +187,34 @@ functions:
           cors: true
 
   # ==================== EVENTBRIDGE ====================
-  pedidoCreadoEvent:
-    handler: eventbridge/pedido_creado.handler
-    name: ${self:service}-pedido-creado-event
-    description: Procesar eventos de pedido creado y enviar a Step Function
-    events:
-      - eventBridge:
-          eventBus: ${env:EVENT_BUS_NAME, 'chinawok-pedidos-events'}
-          pattern:
-            source:
-              - chinawok.pedidos
-            detail-type:
-              - PedidoCreado
+  # Nota: EventBridge invocará directamente el Step Function
+  # La regla se debe crear manualmente o con CloudFormation resources
+  # Esta función Lambda ya no es necesaria si EventBridge va directo al Step Function
 
 custom:
   pythonRequirements:
-    dockerizePip: true  # Cambiar a true
+    dockerizePip: true
     slim: true
+
+# Recursos adicionales para crear la regla de EventBridge que apunte al Step Function
+resources:
+  Resources:
+    PedidoCreadoEventRule:
+      Type: AWS::Events::Rule
+      Properties:
+        Name: ${self:service}-rules
+        Description: Reglas para enviar pedidos creados al Step Function
+        EventBusName: ${env:EVENT_BUS_NAME, 'chinawok-pedidos-events'}
+        EventPattern:
+          source:
+            - chinawok.pedidos
+          detail-type:
+            - PedidoCreado
+        State: ENABLED
+        Targets:
+          - Arn: arn:aws:states:${self:provider.region}:${env:AWS_ACCOUNT_ID}:stateMachine:${env:STEP_FUNCTION_PEDIDOS_NAME, 'ChinaWok-Pedidos-Processor'}
+            Id: PedidoCreadoStepFunction
+            RoleArn: arn:aws:iam::${env:AWS_ACCOUNT_ID}:role/LabRole
 
 package:
   individually: false
