@@ -1,6 +1,7 @@
 import json
 import boto3
 import os
+import uuid
 from datetime import datetime, timedelta
 from jsonschema import validate, ValidationError
 from botocore.exceptions import ClientError
@@ -38,7 +39,6 @@ PEDIDO_SCHEMA = {
     "type": "object",
     "properties": {
         "local_id": {"type": "string"},
-        "pedido_id": {"type": "string"},
         "usuario_correo": {"type": "string", "format": "email"},
         "productos": {
             "type": "array",
@@ -75,7 +75,6 @@ PEDIDO_SCHEMA = {
     },
     "required": [
         "local_id",
-        "pedido_id",
         "usuario_correo",
         "direccion",
         "costo"
@@ -222,8 +221,11 @@ def handler(event, context):
         else:
             body = event.get('body', event)
         
-        # Validar schema (sin estado ni historial_estados)
+        # Validar schema (sin pedido_id, estado ni historial_estados)
         validate(instance=body, schema=PEDIDO_SCHEMA)
+        
+        # Generar pedido_id automáticamente
+        body['pedido_id'] = str(uuid.uuid4())
         
         # Inicializar timestamps y estado automáticamente
         hora_inicio = datetime.utcnow()
