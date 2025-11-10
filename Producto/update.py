@@ -99,6 +99,27 @@ def handler(event, context):
         # Validar schema
         validate(instance=update_data, schema=PRODUCTO_UPDATE_SCHEMA)
         
+        # Verificar que el producto existe antes de actualizar
+        existing_product = table.get_item(
+            Key={
+                'local_id': local_id,
+                'nombre': nombre
+            }
+        )
+        
+        if 'Item' not in existing_product:
+            return {
+                'statusCode': 404,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'body': json.dumps({
+                    'error': 'Producto no encontrado',
+                    'message': f"El producto '{nombre}' no existe en el local {local_id}"
+                })
+            }
+        
         # Convertir floats a Decimal para DynamoDB
         update_data_decimal = convertir_floats_a_decimal(update_data)
         
