@@ -1,7 +1,9 @@
 import json
 import boto3
 import os
+from decimal import Decimal
 from jsonschema import validate, ValidationError
+from botocore.exceptions import ClientError
 
 # Cliente DynamoDB
 dynamodb = boto3.resource('dynamodb')
@@ -42,6 +44,19 @@ PRODUCTO_SCHEMA = {
 }
 
 
+def convertir_floats_a_decimal(obj):
+    """
+    Convierte floats a Decimal para compatibilidad con DynamoDB
+    """
+    if isinstance(obj, float):
+        return Decimal(str(obj))
+    elif isinstance(obj, dict):
+        return {k: convertir_floats_a_decimal(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convertir_floats_a_decimal(item) for item in obj]
+    return obj
+
+
 def handler(event, context):
     """
     Lambda handler para crear un producto en DynamoDB
@@ -56,8 +71,51 @@ def handler(event, context):
         # Validar schema
         validate(instance=body, schema=PRODUCTO_SCHEMA)
         
+        local_id = body.get('local_id')
+        nombre = body.get('nombre')
+        
+        # Verificar que no exista un producto con el mismo nombre en este local
+        try:
+            response = table.get_item(
+                Key={
+                    'local_id': local_id,
+                    'nombre': nombre
+                }
+            )
+            
+            if 'Item' in response:
+                return {
+                    'statusCode': 400,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({
+                        'error': 'Producto duplicado',
+                        'message': f"Ya existe un producto con el nombre '{nombre}' en el local {local_id}"
+                    })
+                }
+        except ClientError as e:
+            return {
+                'statusCode': 500,
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'body': json.dumps({
+                    'error': 'Error al verificar producto existente',
+                    'message': str(e)
+                })
+            }
+        
+        # Convertir floats a Decimal para DynamoDB
+        body_decimal = convertir_floats_a_decimal(body)
+        
+        # Convertir floats a Decimal para DynamoDB
+        body_decimal = convertir_floats_a_decimal(body)
+        
         # Insertar en DynamoDB
-        table.put_item(Item=body)
+        table.put_item(Item=body_decimal)
         
         return {
             'statusCode': 201,

@@ -1,6 +1,7 @@
 import json
 import boto3
 import os
+from decimal import Decimal
 from jsonschema import validate, ValidationError
 
 # Cliente DynamoDB
@@ -38,6 +39,19 @@ PRODUCTO_UPDATE_SCHEMA = {
     "additionalProperties": False,
     "minProperties": 1
 }
+
+
+def convertir_floats_a_decimal(obj):
+    """
+    Convierte floats a Decimal para compatibilidad con DynamoDB
+    """
+    if isinstance(obj, float):
+        return Decimal(str(obj))
+    elif isinstance(obj, dict):
+        return {k: convertir_floats_a_decimal(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convertir_floats_a_decimal(item) for item in obj]
+    return obj
 
 
 def handler(event, context):
@@ -85,10 +99,13 @@ def handler(event, context):
         # Validar schema
         validate(instance=update_data, schema=PRODUCTO_UPDATE_SCHEMA)
         
+        # Convertir floats a Decimal para DynamoDB
+        update_data_decimal = convertir_floats_a_decimal(update_data)
+        
         # Construir expresión de actualización
-        update_expression = "SET " + ", ".join([f"#{k} = :{k}" for k in update_data.keys()])
-        expression_attribute_names = {f"#{k}": k for k in update_data.keys()}
-        expression_attribute_values = {f":{k}": v for k, v in update_data.items()}
+        update_expression = "SET " + ", ".join([f"#{k} = :{k}" for k in update_data_decimal.keys()])
+        expression_attribute_names = {f"#{k}": k for k in update_data_decimal.keys()}
+        expression_attribute_values = {f":{k}": v for k, v in update_data_decimal.items()}
         
         # Actualizar en DynamoDB
         response = table.update_item(
