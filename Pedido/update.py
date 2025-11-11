@@ -26,6 +26,10 @@ locales_table = dynamodb.Table(locales_table_name)
 usuarios_table_name = os.environ.get('TABLE_USUARIOS', 'ChinaWok-Usuarios')
 usuarios_table = dynamodb.Table(usuarios_table_name)
 
+# Tabla de empleados
+empleados_table_name = os.environ.get('TABLE_EMPLEADOS', 'ChinaWok-Empleados')
+empleados_table = dynamodb.Table(empleados_table_name)
+
 # Schema de validación (sin requerir todas las propiedades para update parcial)
 PEDIDO_UPDATE_SCHEMA = {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -213,6 +217,49 @@ def verificar_combos(local_id, combos):
     return True, None
 
 
+def verificar_empleados_historial(local_id, historial_estados):
+    """
+    Verifica que los empleados asignados en el historial existan en el local
+    Returns: (bool, str) - (éxito, mensaje de error)
+    """
+    for estado_item in historial_estados:
+        empleado = estado_item.get('empleado')
+        
+        # Si el empleado es None o null, está OK
+        if not empleado:
+            continue
+        
+        dni = empleado.get('dni')
+        if not dni:
+            continue
+        
+        try:
+            # Obtener empleado de DynamoDB
+            response = empleados_table.get_item(
+                Key={
+                    'local_id': local_id,
+                    'dni': dni
+                }
+            )
+            
+            if 'Item' not in response:
+                return False, f"El empleado con DNI '{dni}' no existe en el local {local_id}"
+            
+            empleado_db = response['Item']
+            
+            # Verificar que el rol coincida
+            rol_esperado = empleado.get('rol')
+            rol_actual = empleado_db.get('rol')
+            
+            if rol_esperado and rol_actual and rol_esperado != rol_actual:
+                return False, f"El empleado con DNI '{dni}' tiene rol '{rol_actual}' pero se especificó '{rol_esperado}'"
+                
+        except ClientError as e:
+            return False, f"Error al verificar empleado '{dni}': {str(e)}"
+    
+    return True, None
+
+
 def convertir_floats_a_decimal(obj):
     """
     Convierte recursivamente todos los floats a Decimal para DynamoDB
@@ -381,6 +428,22 @@ def handler(event, context):
                     },
                     'body': json.dumps({
                         'error': 'Error de validación de combos',
+                        'message': error_msg
+                    })
+                }
+        
+        # Verificar empleados en historial_estados si se está actualizando
+        if 'historial_estados' in update_data and update_data['historial_estados']:
+            exito, error_msg = verificar_empleados_historial(local_id, update_data['historial_estados'])
+            if not exito:
+                return {
+                    'statusCode': 400,
+                    'headers': {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    },
+                    'body': json.dumps({
+                        'error': 'Error de validación de empleados',
                         'message': error_msg
                     })
                 }
