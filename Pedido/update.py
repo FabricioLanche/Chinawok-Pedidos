@@ -249,10 +249,19 @@ def enriquecer_empleados_historial(local_id, historial_estados):
             empleado_db = response['Item']
             
             # Construir objeto empleado completo desde la BD
+            # El esquema de empleados tiene 'nombre', 'apellido' y 'role' (no 'rol')
+            nombre = empleado_db.get('nombre', '')
+            apellido = empleado_db.get('apellido', '')
+            nombre_completo = f"{nombre} {apellido}".strip()
+            
+            # Mapear 'role' de BD a 'rol' para el pedido (y convertir a minúsculas)
+            role_bd = empleado_db.get('role', '')
+            rol_pedido = role_bd.lower() if role_bd else ''
+            
             estado_enriquecido['empleado'] = {
                 'dni': dni,
-                'nombre_completo': empleado_db.get('nombre_completo', ''),
-                'rol': empleado_db.get('rol', ''),
+                'nombre_completo': nombre_completo,
+                'rol': rol_pedido,
                 'calificacion_prom': float(empleado_db.get('calificacion_prom', 0))
             }
             
