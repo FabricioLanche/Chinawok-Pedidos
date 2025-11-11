@@ -220,6 +220,7 @@ def verificar_combos(local_id, combos):
 def verificar_empleados_historial(local_id, historial_estados):
     """
     Verifica que los empleados asignados en el historial existan en el local
+    y que sus datos (rol, calificacion_prom) coincidan con la BD
     Returns: (bool, str) - (éxito, mensaje de error)
     """
     for estado_item in historial_estados:
@@ -253,9 +254,20 @@ def verificar_empleados_historial(local_id, historial_estados):
             
             if rol_esperado and rol_actual and rol_esperado != rol_actual:
                 return False, f"El empleado con DNI '{dni}' tiene rol '{rol_actual}' pero se especificó '{rol_esperado}'"
+            
+            # Verificar que la calificación promedio coincida (si se proporciona)
+            if 'calificacion_prom' in empleado:
+                cal_esperada = float(empleado.get('calificacion_prom'))
+                cal_actual = float(empleado_db.get('calificacion_prom', 0))
+                
+                # Comparar con tolerancia de 0.01 por posibles diferencias de precisión
+                if abs(cal_esperada - cal_actual) > 0.01:
+                    return False, f"El empleado con DNI '{dni}' tiene calificación promedio {cal_actual} pero se especificó {cal_esperada}"
                 
         except ClientError as e:
             return False, f"Error al verificar empleado '{dni}': {str(e)}"
+        except (ValueError, TypeError) as e:
+            return False, f"Error al procesar calificación del empleado '{dni}': {str(e)}"
     
     return True, None
 
