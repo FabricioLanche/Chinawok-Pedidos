@@ -210,6 +210,20 @@ def convertir_floats_a_decimal(obj):
         return obj
 
 
+def convertir_decimal_a_float(obj):
+    """
+    Convierte recursivamente todos los Decimal a float para serialización JSON
+    """
+    if isinstance(obj, list):
+        return [convertir_decimal_a_float(item) for item in obj]
+    elif isinstance(obj, dict):
+        return {k: convertir_decimal_a_float(v) for k, v in obj.items()}
+    elif isinstance(obj, Decimal):
+        return float(obj)
+    else:
+        return obj
+
+
 def handler(event, context):
     """
     Lambda handler para crear un pedido en DynamoDB
@@ -330,12 +344,15 @@ def handler(event, context):
         # Después de crear exitosamente el pedido en DynamoDB
         # Publicar evento a EventBridge
         try:
+            # Convertir Decimal a float para serialización JSON
+            body_para_evento = convertir_decimal_a_float(body)
+            
             event_response = eventbridge.put_events(
                 Entries=[
                     {
                         'Source': 'chinawok.pedidos',
                         'DetailType': 'PedidoCreado',
-                        'Detail': json.dumps(body),  # Los datos del pedido creado
+                        'Detail': json.dumps(body_para_evento),  # Los datos del pedido creado
                         'EventBusName': EVENT_BUS_NAME
                     }
                 ]
@@ -345,6 +362,9 @@ def handler(event, context):
             print(f"Error publicando evento a EventBridge: {str(eb_error)}")
             # No fallar la creación del pedido si EventBridge falla
         
+        # Convertir Decimal a float para la respuesta JSON
+        body_respuesta = convertir_decimal_a_float(body)
+        
         return {
             'statusCode': 201,
             'headers': {
@@ -353,7 +373,7 @@ def handler(event, context):
             },
             'body': json.dumps({
                 'message': 'Pedido creado exitosamente',
-                'data': body
+                'data': body_respuesta
             })
         }
         

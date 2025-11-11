@@ -227,6 +227,20 @@ def convertir_floats_a_decimal(obj):
         return obj
 
 
+def convertir_decimal_a_float(obj):
+    """
+    Convierte recursivamente todos los Decimal a float para serialización JSON
+    """
+    if isinstance(obj, list):
+        return [convertir_decimal_a_float(item) for item in obj]
+    elif isinstance(obj, dict):
+        return {k: convertir_decimal_a_float(v) for k, v in obj.items()}
+    elif isinstance(obj, Decimal):
+        return float(obj)
+    else:
+        return obj
+
+
 def handler(event, context):
     """
     Lambda handler para actualizar un pedido en DynamoDB
@@ -391,6 +405,9 @@ def handler(event, context):
             ReturnValues="ALL_NEW"
         )
         
+        # Convertir Decimal a float para la respuesta JSON
+        data_respuesta = convertir_decimal_a_float(response['Attributes'])
+        
         return {
             'statusCode': 200,
             'headers': {
@@ -399,8 +416,8 @@ def handler(event, context):
             },
             'body': json.dumps({
                 'message': 'Pedido actualizado exitosamente',
-                'data': response['Attributes']
-            }, default=str)
+                'data': data_respuesta
+            })
         }
         
     except ValidationError as e:
